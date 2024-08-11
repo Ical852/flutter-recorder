@@ -33,13 +33,13 @@ class _VideoUploadPageState extends State<VideoUploadPage> {
         });
 
       videoController?.addListener(() {
-        if (videoController!.value.position >= videoController!.value.duration) {
-          videoController!.pause();
-          videoController!.seekTo(Duration.zero);
-          setState(() {
+        setState(() {
+          if (videoController!.value.position >= videoController!.value.duration) {
+            videoController!.pause();
+            videoController!.seekTo(Duration.zero);
             isPlaying = false;
-          });
-        }
+          }
+        });
       });
     }
   }
@@ -71,6 +71,71 @@ class _VideoUploadPageState extends State<VideoUploadPage> {
 
   @override
   Widget build(BuildContext context) {
+    Widget TimerDisplay() {
+      String twoDigits(int n) => n.toString().padLeft(2, '0');
+      final currentPosition = videoController?.value.position ?? Duration.zero;
+      final duration = videoController?.value.duration ?? Duration.zero;
+
+      final currentMinutes = twoDigits(currentPosition.inMinutes.remainder(60));
+      final currentSeconds = twoDigits(currentPosition.inSeconds.remainder(60));
+
+      final totalMinutes = twoDigits(duration.inMinutes.remainder(60));
+      final totalSeconds = twoDigits(duration.inSeconds.remainder(60));
+
+      return Container(
+        margin: EdgeInsets.only(left: 12),
+        child: Text(
+          '$currentMinutes:$currentSeconds / $totalMinutes:$totalSeconds',
+          style: TextStyle(color: Colors.black, fontSize: 16),
+        ),
+      );
+    }
+
+    Widget MiddleContent() {
+      return Row(
+        children: [
+          IconButton(
+            icon: Icon(
+              isPlaying ? Icons.pause : Icons.play_arrow,
+            ),
+            onPressed: (){
+              setState(() {
+                if (isPlaying) {
+                  stopVideo();
+                } else {
+                  playVideo();
+                }
+              });
+            },
+          ),
+          uploading ? Container(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(
+              color: blackColor,
+            ),
+          ) :
+          IconButton(
+            icon: Icon(
+              Icons.upload
+            ),
+            onPressed: () async {
+              setState(() { uploading = true; });
+              await uploadVM.onViodeoUpload(this.widget.videoFile!);
+              setState(() { uploading = false; });
+              if (mounted) {
+                Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  "/record",
+                  (route) => false,
+                );
+              }
+            },
+          )
+        ],
+      );
+    }
+
     if (videoController != null && videoController!.value.isInitialized) {
       return Scaffold(
         appBar: AppBar(title: Text("Upload Video")),
@@ -78,46 +143,11 @@ class _VideoUploadPageState extends State<VideoUploadPage> {
           children: [
             Expanded(child: VideoPlayer(videoController!)),
             Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                IconButton(
-                  icon: Icon(
-                    isPlaying ? Icons.pause : Icons.play_arrow,
-                  ),
-                  onPressed: (){
-                    setState(() {
-                      if (isPlaying) {
-                        stopVideo();
-                      } else {
-                        playVideo();
-                      }
-                    });
-                  },
-                ),
-                uploading ? Container(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(
-                    color: blackColor,
-                  ),
-                ) :
-                IconButton(
-                  icon: Icon(
-                    Icons.upload
-                  ),
-                  onPressed: () async {
-                    setState(() { uploading = true; });
-                    await uploadVM.onViodeoUpload(this.widget.videoFile!);
-                    setState(() { uploading = false; });
-                    if (mounted) {
-                      Navigator.pushNamedAndRemoveUntil(
-                        context,
-                        "/record",
-                        (route) => false,
-                      );
-                    }
-                  },
-                )
+                TimerDisplay(),
+                MiddleContent(),
+                Container(width: 100,)
               ],
             ),
           ],

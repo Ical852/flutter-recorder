@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutterrecorder/functions/global_func.dart';
 import 'package:flutterrecorder/screens/video_upload_pages/video_upload_page.dart';
+import 'package:flutterrecorder/shared/text_styles.dart';
 
 class VideoRecorderPage extends StatefulWidget {
   const VideoRecorderPage({super.key});
@@ -16,6 +19,9 @@ class _VideoRecorderPageState extends State<VideoRecorderPage> {
   List<CameraDescription>? cameras;
   bool isRecording = false;
   bool isPaused = false;
+  int selectedCameraIndex = 0;
+  Timer? timer;
+  Duration recordingDuration = Duration.zero;
   
   @override
   void initState() {
@@ -26,7 +32,7 @@ class _VideoRecorderPageState extends State<VideoRecorderPage> {
   Future initializeCamera() async {
     try {
       cameras = await availableCameras();
-      controller = CameraController(cameras![0], ResolutionPreset.high);
+      controller = CameraController(cameras![selectedCameraIndex], ResolutionPreset.high);
       await controller?.initialize();
       setState(() {});
     } catch (e) {
@@ -41,6 +47,8 @@ class _VideoRecorderPageState extends State<VideoRecorderPage> {
   Future startRecording() async {
     try {
       await controller?.startVideoRecording();
+      stopTimer(reset: true);
+      startTimer();
       setState(() {
         this.isRecording = true;
       });
@@ -56,6 +64,7 @@ class _VideoRecorderPageState extends State<VideoRecorderPage> {
   Future pauseRecording() async {
     try {
       await controller?.pauseVideoRecording();
+      stopTimer();
       setState(() {
         this.isPaused = true;
       });
@@ -71,6 +80,7 @@ class _VideoRecorderPageState extends State<VideoRecorderPage> {
   Future resumeRecording() async {
     try {
       await controller?.resumeVideoRecording();
+      startTimer();
       setState(() {
         this.isPaused = false;
       });
@@ -86,6 +96,7 @@ class _VideoRecorderPageState extends State<VideoRecorderPage> {
   Future stopRecording() async {
     try {
       final videoFile = await controller?.stopVideoRecording();
+      stopTimer();
       setState(() {
         this.videoFile = videoFile;
         this.isRecording = false;
@@ -98,6 +109,30 @@ class _VideoRecorderPageState extends State<VideoRecorderPage> {
         context
       );
     }
+  }
+
+  void startTimer() {
+    timer = Timer.periodic(Duration(seconds: 1), (Timer t) {
+      setState(() {
+        recordingDuration += Duration(seconds: 1);
+      });
+    });
+  }
+
+  void stopTimer({bool reset = false}) {
+    if (timer != null) {
+      timer!.cancel();
+      if (reset) {
+        setState(() {
+          recordingDuration = Duration.zero;
+        });
+      }
+    }
+  }
+
+  void switchCamera() async {
+    selectedCameraIndex = (selectedCameraIndex + 1) % cameras!.length;
+    await initializeCamera();
   }
 
   Widget build(BuildContext context) {
@@ -129,6 +164,17 @@ class _VideoRecorderPageState extends State<VideoRecorderPage> {
       return Container();
     }
 
+    Widget TimerDisplay() {
+      String twoDigits(int n) => n.toString().padLeft(2, '0');
+      final minutes = twoDigits(recordingDuration.inMinutes.remainder(60));
+      final seconds = twoDigits(recordingDuration.inSeconds.remainder(60));
+
+      return Text(
+        '$minutes:$seconds',
+        style: regular.black.semiBold,
+      );
+    }
+
     if (controller != null) {
       if (!controller!.value.isInitialized) {
         return Center(child: CircularProgressIndicator());
@@ -141,16 +187,30 @@ class _VideoRecorderPageState extends State<VideoRecorderPage> {
               child: CameraPreview(controller!),
             ),
             Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                IconButton(
-                  icon: Icon(isRecording ? Icons.stop : Icons.videocam),
-                  onPressed: () {
-                    isRecording ? stopRecording() : startRecording();
-                  },
+                !isRecording ? IconButton(
+                  icon: Icon(Icons.switch_camera),
+                  onPressed: switchCamera,
+                ) : Container(width: 48,),
+                Row(
+                  children: [
+                    IconButton(
+                      icon: Icon(isRecording ? Icons.stop : Icons.videocam),
+                      onPressed: () {
+                        isRecording ? stopRecording() : startRecording();
+                      },
+                    ),
+                    RecordAction(),
+                    UploadAction(),
+                  ],
                 ),
-                RecordAction(),
-                UploadAction(),
+                Container(
+                  margin: EdgeInsets.only(
+                    right: 12
+                  ),
+                  child: TimerDisplay()
+                ),
               ],
             ),
           ],
