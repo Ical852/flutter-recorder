@@ -40,7 +40,6 @@ void showGLobalAlert(type, text, context) {
 
 double getWH(BuildContext context, String type) {
   var size = MediaQuery.of(context).size;
-
   if (type == 'width') return size.width;
   return size.height;
 }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutterrecorder/functions/global_func.dart';
@@ -12,13 +14,12 @@ class VideoUploadViewModel {
     this.services = VideoServices();
   }
 
-  void onViodeoUpload(XFile videoFile) async {
+  Future onViodeoUpload(XFile videoFile) async {
     try {
       var response = await services.uploadVideo(videoFile: videoFile);
       if (response) {
         return showGLobalAlert("success", "Success to upload video", context);
       }
-
       return showGLobalAlert("danger", "Failed to upload video", context);
     } catch (e) {
       return showGLobalAlert("danger", "Failed to upload video", context);
